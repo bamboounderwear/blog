@@ -1,0 +1,141 @@
+---
+export const prerender = false;
+
+import BaseHead from '../components/BaseHead.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import PostCard from '../components/PostCard.astro';
+import { createRepositories } from '../db/database';
+import { getSiteConfigWithFallback } from '../lib/config';
+import type { PostWithTags } from '../types/database';
+
+// Get recent posts
+let recentNotes: PostWithTags[] = [];
+let recentArticles: PostWithTags[] = [];
+
+try {
+	if (Astro.locals.runtime?.env.DB) {
+		const repositories = createRepositories(Astro.locals.runtime.env.DB);
+		
+		// Get recent notes
+		const notesResult = await repositories.posts.findMany({ 
+			page: 1, 
+			limit: 4, 
+			type: 'note',
+			status: 'published' 
+		});
+		recentNotes = notesResult.posts;
+
+		// Get recent articles
+		const articlesResult = await repositories.posts.findMany({ 
+			page: 1, 
+			limit: 3, 
+			type: 'article',
+			status: 'published' 
+		});
+		recentArticles = articlesResult.posts;
+	}
+} catch (error) {
+	console.error('Homepage database error:', error);
+}
+
+// Get simplified site configuration
+const siteConfig = await getSiteConfigWithFallback(Astro.locals.runtime?.env.DB);
+
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<BaseHead 
+			title={siteConfig.title} 
+			description={siteConfig.description}
+		/>
+	</head>
+	<body>
+		<Header siteTitle={siteConfig.brandName} />
+		
+		<main>
+			<!-- Hero Section -->
+			<section class="container-responsive py-24 sm:py-32 lg:py-40">
+				<div class="text-center animate-fade-in">
+					<h1 class="hero-title text-5xl sm:text-6xl lg:text-7xl font-display leading-tight tracking-tight">
+						{siteConfig.heroTitle}
+					</h1>
+					<p class="text-xl sm:text-2xl text-apple-gray-600 max-w-4xl mx-auto leading-relaxed font-light mt-8 text-balance">
+						{siteConfig.description}
+					</p>
+				</div>
+			</section>
+
+			<!-- Section 2: Recent Notes -->
+			{recentNotes.length > 0 && (
+				<section class="py-20 sm:py-28 lg:py-32">
+					<div class="container-responsive">
+						<div class="text-center mb-16 animate-slide-up">
+							<div class="space-y-6">
+								<h2 class="text-3xl sm:text-4xl lg:text-5xl font-display font-bold text-apple-gray-900 tracking-tight">
+									Recent Notes
+								</h2>
+								<p class="text-lg sm:text-xl text-apple-gray-600 max-w-2xl mx-auto leading-relaxed">
+									Quick thoughts and brief shares
+								</p>
+							</div>
+						</div>
+						
+						<div class="max-w-5xl mx-auto grid gap-6 md:grid-cols-2 lg:gap-8">
+							{recentNotes.map((note, index) => (
+								<div class="animate-slide-up" style={`animation-delay: ${index * 0.1}s`}>
+									<PostCard post={note} showExcerpt={false} />
+								</div>
+							))}
+						</div>
+						
+						<div class="text-center mt-16 animate-fade-in">
+							<a href="/notes" class="btn btn-secondary">
+								View All Notes
+							</a>
+						</div>
+					</div>
+				</section>
+			)}
+
+			<!-- Section 3: Recent Articles -->
+			{recentArticles.length > 0 && (
+				<section class="glass py-20 sm:py-28 lg:py-32">
+					<div class="container-responsive">
+						<div class="text-center mb-16 animate-slide-up">
+							<div class="space-y-6">
+								<h2 class="text-3xl sm:text-4xl lg:text-5xl font-display font-bold text-apple-gray-900 tracking-tight">
+									Recent Articles
+								</h2>
+								<p class="text-lg sm:text-xl text-apple-gray-600 max-w-2xl mx-auto leading-relaxed">
+									In-depth articles and insights
+								</p>
+							</div>
+						</div>
+						
+						<div class="max-w-6xl mx-auto grid gap-8 lg:gap-12">
+							{recentArticles.map((article, index) => (
+								<div class="animate-slide-up" style={`animation-delay: ${index * 0.15}s`}>
+									<PostCard post={article} showExcerpt={true} />
+								</div>
+							))}
+						</div>
+						
+						<div class="text-center mt-20 animate-fade-in">
+							<a href="/articles" class="btn btn-primary">
+								View All Articles
+							</a>
+						</div>
+					</div>
+				</section>
+			)}
+		</main>
+
+		<Footer 
+			siteTitle={siteConfig.brandName}
+			socialLinks={siteConfig.socialLinks || []}
+		/>
+	</body>
+</html>
